@@ -11,7 +11,7 @@ using namespace std;
 
 
 
-const int TARGET_FPS = 60;
+const int TARGET_FPS = 120;
 const std::chrono::milliseconds FRAME_DURATION(1000 / TARGET_FPS); 
 
 GLuint renderingProgram;
@@ -79,27 +79,38 @@ void copy(int(&arr1)[init_col][init_row], int(&arr2)[init_col][init_row])
     }
 }
 
-void colorinit(int (&grid)[init_col][init_row],glm::vec3 (&colors)[color_init], std::vector<Vertex>&vertices,const float &cellSize)
+void colorinit(int(&grid)[init_col][init_row], glm::vec3(&colors)[color_init],
+    std::vector<Vertex>& vertices, const float& cellSize)
 {
+    // 预分配内存，避免多次重新分配
+    size_t totalCells = init_col * init_row;
+    size_t expectedVertices = totalCells * 6; // 每个单元格6个顶点
+    vertices.reserve(vertices.size() + expectedVertices);
+
+    // 将常量移到循环外
+    const float baseX = x_;
+    const float baseY = y_;
+    const float size = cellSize;
+
     for (int col = 0; col < init_col; ++col) {
+        float yPos = -(col * size + baseY);
+        float yPosNext = yPos + size; // 注意负号，y向下减小
+
         for (int row = 0; row < init_row; ++row) {
             int colorIndex = grid[col][row];
             //if (colorIndex == 0) continue;
-            // 根据colorIndex获取颜色，例如预定义的颜色数组
-            glm::vec3 color = colors[colorIndex];
-            float x0 = row * cellSize + x_;
-            float y0 = -(col * cellSize + y_);
-            float x1 = x0 + cellSize;
-            float y1 = y0 + cellSize;
-            // 三角形1
-            vertices.push_back({ x0, y0, color.r, color.g, color.b });
-            vertices.push_back({ x1, y0, color.r, color.g, color.b });
-            vertices.push_back({ x0, y1, color.r, color.g, color.b });
-            // 三角形2
-            vertices.push_back({ x1, y0, color.r, color.g, color.b });
-            vertices.push_back({ x1, y1, color.r, color.g, color.b });
-            vertices.push_back({ x0, y1, color.r, color.g, color.b });
 
+            glm::vec3 color = colors[colorIndex];
+            float xPos = row * size + baseX;
+            float xPosNext = xPos + size;
+
+            // 批量添加顶点
+            vertices.push_back({ xPos, yPos, color.r, color.g, color.b });
+            vertices.push_back({ xPosNext, yPos, color.r, color.g, color.b });
+            vertices.push_back({ xPos, yPosNext, color.r, color.g, color.b });
+            vertices.push_back({ xPosNext, yPos, color.r, color.g, color.b });
+            vertices.push_back({ xPosNext, yPosNext, color.r, color.g, color.b });
+            vertices.push_back({ xPos, yPosNext, color.r, color.g, color.b });
         }
     }
 }
@@ -130,6 +141,7 @@ void init(GLFWwindow * window)
     glfwSetKeyCallback(window, key_callback);
 
     shongchong(fangzhi);
+
 }
 
 void display(GLFWwindow* window, double currentTime) {
@@ -142,7 +154,8 @@ void display(GLFWwindow* window, double currentTime) {
         shongchong(fangzhi);
     }
     if (jiange1 >= 10) {
-        delete_copy(grid1);
+        nmjj.biaojishuxing();
+        nmjj.delete_kaishi();
         jiange1 = 0;
     }
     glfwPollEvents();
@@ -152,13 +165,13 @@ void display(GLFWwindow* window, double currentTime) {
     delete_copy(grid, grid1);
     _3_3muoban(grid1);
     // 将顶点数据发送到VBO
-    glBufferData(GL_ARRAY_BUFFER, vertices.size()*sizeof(Vertex), vertices.data(), GL_STATIC_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, vertices.size()*sizeof(Vertex), vertices.data(), GL_DYNAMIC_DRAW);
 
     // 设置顶点属性指针
     glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex),(void*)offsetof(Vertex,x));
     glEnableVertexAttribArray(0);  // 启用顶点属性（与layout location = 0对应）
 
-    glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(Vertex), vertices.data(), GL_STATIC_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(Vertex), vertices.data(), GL_DYNAMIC_DRAW);
 
     // 设置顶点颜色属性指针
     glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)(offsetof(Vertex,r)));

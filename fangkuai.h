@@ -28,6 +28,7 @@ bool fz1 = 0, fz2 = 0;//记录方块是否被放下
 int grid[init_col][init_row];//初始网格属性
 int grid1[init_col][init_row];
 int jiange = 0, jiange1 = 0;
+std::vector<std::vector<bool>>b(init_col, std::vector<bool>(init_row));
 
 // 形状数组索引：0-I, 1-O, 2-T, 3-L, 4-J, 5-S, 6-Z
 const int SHAPES[SHAPE_COUNT][ROTATION_COUNT][MATRIX_SIZE][MATRIX_SIZE] = {
@@ -183,58 +184,141 @@ void delete_copy(int(&arr1)[init_col][init_row], int(&arr2)[48][init_row])
     }
 }
 //删除相同颜色元素
-void delete_copy(int(&arr)[init_col][init_row])
-{
-    int a = 0, c = 0, d = 0, e = 0;
-    std::vector<std::vector<bool>>b(init_col, std::vector<bool>(init_row));
-    for (int i = 0; i < init_col; i++)
+class delete_xingtongyanse {
+private:
+    std::vector<int>shuxing;
+    std::vector<int>shuxingliebiao;
+    std::vector<int> zhenghe;
+    std::vector<int>you_;
+    std::vector<int>zuo_;
+    const int rows, cols;
+    int(&arr)[init_col][init_row];
+public:
+    delete_xingtongyanse(int(&arr)[init_col][init_row], int c, int r) :rows(r), cols(c), shuxing(r* c), zhenghe(r* c), arr(arr),
+        you_(init_col), zuo_(init_col) {
+    }
+    void dy(const std::vector<int>& arr1)
     {
-        if (arr[i][0] == 0 || arr[i][0] == a) {
-            a = arr[i][0]; continue;
-        }
-        a = arr[i][0]; c = i;
-        for (int j = 0; j < init_row; )
+        int a = init_col * init_row;
+        for (int i = 0; i < a; i++)
         {
-            for (int k = c; k < init_col; k++)
+            if (i % init_row == 0)std::cout << std::endl;
+            std::cout << arr1[i] << ' ';
+        }
+        std::cout << std::endl;
+    }
+    void biaojishuxing()
+    {
+        int size = rows * cols;
+        // 确保labels数组足够大
+        if (shuxing.size() < size) {
+            shuxing.resize(size);
+        }
+        // 第一遍：初步标记
+        int nextLabel = 1;
+        int shangyige = 0;
+        int shang = 0, zuo = 0, ls = 0;
+        shuxingliebiao.clear();
+        shuxingliebiao.push_back(0); // 占位
+        for (int i = 0; i < rows; i++)
+        {
+            for (int j = 0; j < cols; j++)
             {
-                if (arr[k][j] == a)b[k][j] = 1;
-                else break;
-            }
-            for (int l = c - 1; l >= 0; l--)
-            {
-                if (arr[l][j] == a)b[l][j] = 1;
-                else break;
-            }
-            d = j;
-            for (int m = 0; m < init_col; m++)
-            {
-                if (b[m][d] && d + 1 < init_row && arr[m][d + 1] == a)
-                {
-                    b[m][d + 1] = 1;
-                    c = m;
-                    j = d + 1;
+
+                ls = j * rows + i;
+                if (arr[j][i] == 0) {
+                    shuxing[j * rows + i] = 0;
+                    continue;
                 }
-            }
-            if (j == d)break;
-            if (j == init_row - 1) {
-                for (int k = 0; k < init_col; k++)
-                {
-                    for (int l = 0; l < init_row; l++)
-                    {
-                        if (b[k][l])arr[k][l] = delete_tianchong;
+                // 检查左边和上边（4连通）
+                if (j > 0 && arr[j][i] == arr[j - 1][i])shang = shuxing[(j - 1) * rows + i];
+                else shang = 0;
+                if (i > 0 && arr[j][i] == arr[j][i - 1])zuo = shuxing[j * rows + i - 1];
+                else zuo = 0;
+                if (shang == 0 && zuo == 0) {
+                    shuxing[ls] = nextLabel++;
+                    shuxingliebiao.push_back(nextLabel - 1);
+                }
+                else if (shang != 0 && zuo == 0) {
+                    shuxing[ls] = shang;
+                }
+                else if (shang == 0 && zuo != 0) {
+                    shuxing[ls] = zuo;
+                }
+                else {
+                    // 两者都非0，需要合并
+                    int minLabel = std::min(shang, zuo);
+                    int maxLabel = std::max(shang, zuo);
+                    shuxing[ls] = minLabel;
+
+                    if (minLabel != maxLabel) {
+                        // 记录等价关系
+                        while (shuxingliebiao[maxLabel] != maxLabel) {
+                            maxLabel = shuxingliebiao[maxLabel];
+                        }
+                        while (shuxingliebiao[minLabel] != minLabel) {
+                            minLabel = shuxingliebiao[minLabel];
+                        }
+                        if (maxLabel != minLabel) {
+                            shuxingliebiao[maxLabel] = minLabel;
+                        }
                     }
                 }
             }
         }
-        for (int k = 0; k < init_col; k++)
-        {
-            for (int l = 0; l < init_row; l++)
-            {
-                b[k][l] = 0;
+        // 第二遍：合并等价标签
+        for (int i = 0; i < size; ++i) {
+            if (shuxing[i] != 0) {
+                int label = shuxing[i];
+                while (shuxingliebiao[label] != label) {
+                    label = shuxingliebiao[label];
+                    continue;
+                }
+                zhenghe[i] = label;
+            }
+            else {
+                zhenghe[i] = 0;
             }
         }
     }
-}
+    void delete_kaishi()
+    {
+        int c = 0;
+        for (int i = 0; i < cols; i++)
+        {
+            if (zhenghe[i * rows])you_[i] = zhenghe[i * rows];
+            if (zhenghe[i * rows + rows - 2])zuo_[i] = zhenghe[i * rows + rows - 2];
+        }
+        for (int i = 0; i < cols; i++)
+        {
+            for (int j = 0; j < cols; j++)
+            {
+                if (you_[j] && zuo_[i] && you_[j] == zuo_[i]) {
+                    c = you_[j];
+                    for (int a = 0; a < cols; a++)
+                    {
+                        for (int b = 0; b < rows; b++) {
+                            if (zhenghe[a*rows+b] == c)arr[a][b] = 0;
+                        }
+                    }
+                    you_.assign(cols, 0);
+                    zuo_.assign(cols, 0);
+                    shuxing.assign(cols * rows, 0);
+                    shuxingliebiao.clear();
+                    zhenghe.assign(cols * rows, 0);
+                    return ;
+                }
+            }
+        }
+        you_.assign(cols, 0);
+        zuo_.assign(cols, 0);
+        shuxing.assign(cols * rows, 0);
+        shuxingliebiao.clear();
+        zhenghe.assign(cols * rows, 0);
+    }
+
+};
+delete_xingtongyanse nmjj(grid1, init_col, init_row);
 //A键左移
 void a_anxia(int(&arr)[48][init_row])
 {
